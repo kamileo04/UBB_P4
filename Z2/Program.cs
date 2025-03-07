@@ -193,15 +193,15 @@ class Program
         var dbHelper = new DatabaseHelper(connectionString);
 
         List<Customer> customers = dbHelper.GetAllCustomers();
+        Console.WriteLine("Klienci przed zmianami:");
         foreach (var customer in customers)
         {
             Console.WriteLine($"CustomerID: {customer.CustomerID}, CompanyName: {customer.CompanyName}");
         }
 
-
         var newCustomer = new Customer
         {
-            CustomerID = "TEST6", 
+            CustomerID = "TEST6",
             CompanyName = "Firma Testowa",
             ContactName = "Jan Nowak",
             ContactTitle = "Manager",
@@ -213,25 +213,32 @@ class Program
             Fax = "098-765-4321"
         };
         string addedCustomerId = dbHelper.AddCustomer(newCustomer);
-        Console.WriteLine($"Dodano klienta z CustomerID: {addedCustomerId}");
+        Console.WriteLine($"\nDodano klienta z CustomerID: {addedCustomerId}");
 
-        
         var retrievedCustomer = dbHelper.GetCustomerById(addedCustomerId);
         if (retrievedCustomer != null)
         {
-            Console.WriteLine($"Pobrano klienta: CompanyName: {retrievedCustomer.CompanyName}, ContactName: {retrievedCustomer.ContactName}");
+            Console.WriteLine($"\nPobrano klienta: CompanyName: {retrievedCustomer.CompanyName}, ContactName: {retrievedCustomer.ContactName}");
         }
 
         retrievedCustomer.CompanyName = "Zaktualizowana Firma Testowa";
         dbHelper.UpdateCustomer(retrievedCustomer);
-        Console.WriteLine($"Zaktualizowano nazwę firmy dla klienta {retrievedCustomer.CustomerID}.");
+        Console.WriteLine($"\nZaktualizowano nazwę firmy dla klienta {retrievedCustomer.CustomerID}.");
 
+        customers = dbHelper.GetAllCustomers();
+        Console.WriteLine("\nKlienci po aktualizacji:");
         foreach (var customer in customers)
         {
             Console.WriteLine($"CustomerID: {customer.CustomerID}, CompanyName: {customer.CompanyName}");
         }
+
+      
         dbHelper.RemoveCustomerById(addedCustomerId);
-        Console.WriteLine($"Usunięto klienta o CustomerID: {addedCustomerId}");
+        Console.WriteLine($"\nUsunięto klienta o CustomerID: {addedCustomerId}");
+
+       
+        customers = dbHelper.GetAllCustomers();
+        Console.WriteLine("\nKlienci po usunięciu:");
         foreach (var customer in customers)
         {
             Console.WriteLine($"CustomerID: {customer.CustomerID}, CompanyName: {customer.CompanyName}");
