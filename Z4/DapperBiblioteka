@@ -1,0 +1,292 @@
+using Dapper;
+using System.Data.SqlClient;
+public class Book
+{
+    public DateTime? DataDodania { get; set; }
+    public DateTime? DataWydania { get; set; }
+    public string Tytul { get; set; }
+    public string Autor { get; set; }
+    public decimal? Cena { get; set; }
+    public int? LiczbaStron { get; set; }   
+    public string Wydawnictwo { get; set; }
+
+    public override string ToString()
+    {
+        return $"Tytul: {Tytul}, Autor: {Autor}, Data Wydania: {DataWydania?.ToString("yyyy-MM-dd")}," +
+            $" Cena: {Cena}, Liczba Stron: {LiczbaStron}, Wydawnictwo: {Wydawnictwo}, Data Dodania: {DataDodania?.ToString("yyyy-MM-dd")}";
+
+
+    }
+}
+
+
+public class LibraryRepository
+{
+    private readonly string _connectionString;
+
+    public LibraryRepository(string connectionString)
+    {
+        _connectionString = connectionString;
+    }
+
+    public void AddBook(Book book)
+    {
+        using (var connection = new SqlConnection(_connectionString))
+        {
+            var sql = @"INSERT INTO biblioteka (DataDodania, DataWydania, Tytul, Autor, Cena, LiczbaStron, Wydawnictwo)
+                        VALUES (@DataDodania, @DataWydania, @Tytul, @Autor, @Cena, @LiczbaStron, @Wydawnictwo)";
+            connection.Execute(sql, book);
+        }
+    }
+
+    public List<Book> SearchBooks(string title, string author)
+    {
+        using (var connection = new SqlConnection(_connectionString))
+        {
+            var sql = @"SELECT * FROM biblioteka 
+                        WHERE (@Tytul IS NULL OR Tytul LIKE '%' + @Tytul + '%')
+                        AND (@Autor IS NULL OR Autor LIKE '%' + @Autor + '%')";
+            return connection.Query<Book>(sql, new { Tytul = title, Autor = author }).ToList();
+        }
+    }
+
+    public List<Book> GetNewestBooks()
+    {
+        using (var connection = new SqlConnection(_connectionString))
+        {
+            var sql = "SELECT TOP 3 * FROM biblioteka ORDER BY DataDodania DESC";
+            return connection.Query<Book>(sql).ToList();
+        }
+    }
+
+    public List<Book> GetOldestBooks()
+    {
+        using (var connection = new SqlConnection(_connectionString))
+        {
+            var sql = "SELECT TOP 5 * FROM biblioteka ORDER BY DataDodania ASC";
+            return connection.Query<Book>(sql).ToList();
+        }
+    }
+
+    public Book GetMostRecentlyPublishedBook()
+    {
+        using (var connection = new SqlConnection(_connectionString))
+        {
+            var sql = "SELECT TOP 1 * FROM biblioteka ORDER BY DataWydania DESC";
+            return connection.QueryFirstOrDefault<Book>(sql);
+        }
+    }
+
+    public void UpdateBook(Book updatedBook, string originalTitle, string originalAuthor)
+    {
+        using (var connection = new SqlConnection(_connectionString))
+        {
+            var sql = @"UPDATE biblioteka 
+                        SET DataDodania = @DataDodania, DataWydania = @DataWydania, Tytul = @Tytul, 
+                            Autor = @Autor, Cena = @Cena, LiczbaStron = @LiczbaStron, Wydawnictwo = @Wydawnictwo
+                        WHERE Tytul = @OriginalTitle AND Autor = @OriginalAuthor";
+            connection.Execute(sql, new
+            {
+                updatedBook.DataDodania,
+                updatedBook.DataWydania,
+                updatedBook.Tytul,
+                updatedBook.Autor,
+                updatedBook.Cena,
+                updatedBook.LiczbaStron,
+                updatedBook.Wydawnictwo,
+                OriginalTitle = originalTitle,
+                OriginalAuthor = originalAuthor
+            });
+        }
+    }
+
+    public void DeleteBook(string title, string author)
+    {
+        using (var connection = new SqlConnection(_connectionString))
+        {
+            var sql = "DELETE FROM biblioteka WHERE Tytul = @Tytul AND Autor = @Autor";
+            connection.Execute(sql, new { Tytul = title, Autor = author });
+        }
+    }
+}
+class Program
+{
+    static void Main(string[] args)
+    {
+        string connectionString = "Data Source=Kamil_Redmibook;Initial Catalog=BiblioP4;Integrated Security=True";
+        var repo = new LibraryRepository(connectionString);
+
+        while (true)
+        {
+            Console.WriteLine("\n=== System Zarządzania Biblioteką ===");
+            Console.WriteLine("1. Dodaj książkę");
+            Console.WriteLine("2. Wyszukaj książki");
+            Console.WriteLine("3. Pokaż 3 najnowsze książki");
+            Console.WriteLine("4. Pokaż 5 najstarszych książek");
+            Console.WriteLine("5. Pokaż ostatnio wydaną książkę");
+            Console.WriteLine("6. Aktualizuj książkę");
+            Console.WriteLine("7. Usuń książkę");
+            Console.WriteLine("8. Wyjdź");
+            Console.Write("Wybierz opcję: ");
+
+            string choice = Console.ReadLine();
+
+            switch (choice)
+            {
+                case "1":
+                    AddBook(repo);
+                    break;
+                case "2":
+                    SearchBooks(repo);
+                    break;
+                case "3":
+                    ShowNewestBooks(repo);
+                    break;
+                case "4":
+                    ShowOldestBooks(repo);
+                    break;
+                case "5":
+                    ShowMostRecentlyPublishedBook(repo);
+                    break;
+                case "6":
+                    UpdateBook(repo);
+                    break;
+                case "7":
+                    DeleteBook(repo);
+                    break;
+                case "8":
+                    return;
+                default:
+                    Console.WriteLine("Nieprawidłowa opcja. Spróbuj ponownie.");
+                    break;
+            }
+        }
+    }
+
+    static void AddBook(LibraryRepository repo)
+    {
+        var book = new Book
+        {
+            DataDodania = DateTime.Now,
+            DataWydania = ReadDateTime("Podaj datę wydania (YYYY-MM-DD): "),
+            Tytul = ReadString("Podaj tytuł: "),
+            Autor = ReadString("Podaj autora: "),
+            Cena = ReadDecimal("Podaj cenę: "),
+            LiczbaStron = ReadInt("Podaj liczbę stron: "),
+            Wydawnictwo = ReadString("Podaj wydawnictwo: ")
+        };
+        repo.AddBook(book);
+        Console.WriteLine("Książka dodana pomyślnie!");
+    }
+
+    static void SearchBooks(LibraryRepository repo)
+    {
+        string title = ReadString("Podaj tytuł (lub zostaw puste): ");
+        string author = ReadString("Podaj autora (lub zostaw puste): ");
+        var books = repo.SearchBooks(string.IsNullOrWhiteSpace(title) ? null : title, string.IsNullOrWhiteSpace(author) ? null : author);
+        DisplayBooks(books);
+    }
+
+    static void ShowNewestBooks(LibraryRepository repo)
+    {
+        var books = repo.GetNewestBooks();
+        Console.WriteLine("\n3 najnowsze książki:");
+        DisplayBooks(books);
+    }
+
+    static void ShowOldestBooks(LibraryRepository repo)
+    {
+        var books = repo.GetOldestBooks();
+        Console.WriteLine("\n5 najstarszych książek:");
+        DisplayBooks(books);
+    }
+
+    static void ShowMostRecentlyPublishedBook(LibraryRepository repo)
+    {
+        var book = repo.GetMostRecentlyPublishedBook();
+        if (book != null)
+        {
+            Console.WriteLine("\nOstatnio wydana książka:");
+            Console.WriteLine(book);
+        }
+        else
+        {
+            Console.WriteLine("Brak książek w bazie.");
+        }
+    }
+
+    static void UpdateBook(LibraryRepository repo)
+    {
+        string originalTitle = ReadString("Podaj oryginalny tytuł książki: ");
+        string originalAuthor = ReadString("Podaj oryginalnego autora książki: ");
+
+        var updatedBook = new Book
+        {
+            DataDodania = DateTime.Now,
+            DataWydania = ReadDateTime("Podaj nową datę wydania (YYYY-MM-DD): "),
+            Tytul = ReadString("Podaj nowy tytuł: "),
+            Autor = ReadString("Podaj nowego autora: "),
+            Cena = ReadDecimal("Podaj nową cenę: "),
+            LiczbaStron = ReadInt("Podaj nową liczbę stron: "),
+            Wydawnictwo = ReadString("Podaj nowe wydawnictwo: ")
+        };
+        repo.UpdateBook(updatedBook, originalTitle, originalAuthor);
+        Console.WriteLine("Książka zaktualizowana pomyślnie!");
+    }
+
+    static void DeleteBook(LibraryRepository repo)
+    {
+        string title = ReadString("Podaj tytuł książki do usunięcia: ");
+        string author = ReadString("Podaj autora książki do usunięcia: ");
+        repo.DeleteBook(title, author);
+        Console.WriteLine("Książka usunięta pomyślnie!");
+    }
+
+    static void DisplayBooks(List<Book> books)
+    {
+        if (books.Any())
+        {
+            foreach (var book in books)
+            {
+                Console.WriteLine(book);
+            }
+        }
+        else
+        {
+            Console.WriteLine("Brak książek spełniających kryteria.");
+        }
+    }
+
+    static string ReadString(string prompt)
+    {
+        Console.Write(prompt);
+        return Console.ReadLine();
+    }
+
+    static DateTime? ReadDateTime(string prompt)
+    {
+        Console.Write(prompt);
+        string input = Console.ReadLine();
+        if (DateTime.TryParse(input, out DateTime result))
+            return result;
+        return null;
+    }
+
+    static decimal? ReadDecimal(string prompt)
+    {
+        Console.Write(prompt);
+        string input = Console.ReadLine();
+        if (decimal.TryParse(input, out decimal result))
+            return result;
+        return null;
+    }
+
+    static int? ReadInt(string prompt)
+    {
+        Console.Write(prompt);
+        string input = Console.ReadLine();
+        if (int.TryParse(input, out int result))
+            return result;
+        return null;
+    }
+}
